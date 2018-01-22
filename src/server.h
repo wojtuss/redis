@@ -49,6 +49,9 @@
 #include <lua.h>
 #include <signal.h>
 
+#include <memkind.h>
+#include <memkind/internal/memkind_pmem.h>
+
 typedef long long mstime_t; /* millisecond time type. */
 
 #include "ae.h"      /* Event driven programming library */
@@ -78,6 +81,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #define C_OK                    0
 #define C_ERR                   -1
 
+#define PMEM1_MAX_SIZE	(MEMKIND_PMEM_MIN_SIZE * 100)
 /* Static server configuration */
 #define CONFIG_DEFAULT_HZ        10      /* Time interrupt calls/sec. */
 #define CONFIG_MIN_HZ            1
@@ -998,6 +1002,9 @@ struct redisServer {
     int supervised_mode;            /* See SUPERVISED_* */
     int daemonize;                  /* True if running as a daemon */
     clientBufferLimitsConfig client_obuf_limits[CLIENT_TYPE_OBUF_COUNT];
+
+    struct memkind *pmem_kind1;
+
     /* AOF persistence */
     int aof_state;                  /* AOF_(ON|OFF|WAIT_REWRITE) */
     int aof_fsync;                  /* Kind of fsync() policy */
