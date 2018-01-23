@@ -38,12 +38,6 @@
 #include <limits.h>
 #include "sds.h"
 #include "sdsalloc.h"
-#include "server.h"
-
-#include <memkind.h>
-#include <memkind/internal/memkind_pmem.h>
-
-
 
 static inline int sdsHdrSize(char type) {
     switch(type&SDS_TYPE_MASK) {
@@ -88,8 +82,6 @@ static inline char sdsReqType(size_t string_size) {
  * end of the string. However the string is binary safe and can contain
  * \0 characters in the middle, as the length is stored in the sds header. */
 sds sdsnewlen(const void *init, size_t initlen) {
-
-
     void *sh;
     sds s;
     char type = sdsReqType(initlen);
@@ -98,13 +90,8 @@ sds sdsnewlen(const void *init, size_t initlen) {
     if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8;
     int hdrlen = sdsHdrSize(type);
     unsigned char *fp; /* flags pointer. */
-    sh = memkind_malloc(server.pmem_kind1, hdrlen+initlen+1);
-    if (sh == NULL) {
-            perror("memkind_malloc()");
-            fprintf(stderr, "Unable to allocate pmem string (pmem_str11)\n");
 
-        }
-    //sh = s_malloc(hdrlen+initlen+1);
+    sh = s_malloc(hdrlen+initlen+1);
     if (!init)
         memset(sh, 0, hdrlen+initlen+1);
     if (sh == NULL) return NULL;
@@ -170,8 +157,7 @@ sds sdsdup(const sds s) {
 /* Free an sds string. No operation is performed if 's' is NULL. */
 void sdsfree(sds s) {
     if (s == NULL) return;
-    //s_free((char*)s-sdsHdrSize(s[-1]));
-    memkind_free(server.pmem_kind1, (char*)s-sdsHdrSize(s[-1]));
+    s_free((char*)s-sdsHdrSize(s[-1]));
 }
 
 /* Set the sds string length to the length as obtained with strlen(), so
@@ -235,19 +221,16 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
 
     hdrlen = sdsHdrSize(type);
     if (oldtype==type) {
-        //newsh = s_realloc(sh, hdrlen+newlen+1);
-        newsh = memkind_realloc(server.pmem_kind1, sh, hdrlen+newlen+1);
+        newsh = s_realloc(sh, hdrlen+newlen+1);
         if (newsh == NULL) return NULL;
         s = (char*)newsh+hdrlen;
     } else {
         /* Since the header size changes, need to move the string forward,
          * and can't use realloc */
-        //newsh = s_malloc(hdrlen+newlen+1);
-        newsh = memkind_malloc(server.pmem_kind1, hdrlen+newlen+1);
+        newsh = s_malloc(hdrlen+newlen+1);
         if (newsh == NULL) return NULL;
         memcpy((char*)newsh+hdrlen, s, len+1);
-        //s_free(sh);
-        memkind_free(server.pmem_kind1, sh);
+        s_free(sh);
         s = (char*)newsh+hdrlen;
         s[-1] = type;
         sdssetlen(s, len);
@@ -279,18 +262,14 @@ sds sdsRemoveFreeSpace(sds s) {
      * only if really needed. Otherwise if the change is huge, we manually
      * reallocate the string to use the different header type. */
     if (oldtype==type || type > SDS_TYPE_8) {
-        //newsh = s_realloc(sh, oldhdrlen+len+1);
-        newsh = memkind_realloc(server.pmem_kind1, sh, oldhdrlen+len+1);
+        newsh = s_realloc(sh, oldhdrlen+len+1);
         if (newsh == NULL) return NULL;
         s = (char*)newsh+oldhdrlen;
     } else {
-        //newsh = s_malloc(hdrlen+len+1);
-        newsh = memkind_malloc(server.pmem_kind1,hdrlen+len+1);
+        newsh = s_malloc(hdrlen+len+1);
         if (newsh == NULL) return NULL;
         memcpy((char*)newsh+hdrlen, s, len+1);
-        memkind_free(server.pmem_kind1, sh);
-        //s_free(sh);
-
+        s_free(sh);
         s = (char*)newsh+hdrlen;
         s[-1] = type;
         sdssetlen(s, len);
