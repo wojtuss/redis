@@ -63,9 +63,10 @@ endif
 # Override default settings if possible
 -include .make-settings
 
+FINAL_LIBS=$(LIBS)
 FINAL_CFLAGS=$(STD) $(WARN) $(OPT) $(DEBUG) $(CFLAGS) $(REDIS_CFLAGS)
 FINAL_LDFLAGS=$(LDFLAGS) $(REDIS_LDFLAGS) $(DEBUG)
-FINAL_LIBS=-lm
+FINAL_LIBS+= -lm
 DEBUG=-g -ggdb
 
 ifeq ($(uname_S),SunOS)
@@ -108,11 +109,6 @@ endif
 endif
 # Include paths to dependencies
 FINAL_CFLAGS+= -I../deps/hiredis -I../deps/linenoise -I../deps/lua/src
-FINAL_CFLAGS+= -I/home/jschmieg/projects/git/memkind/include
-FINAL_CFLAGS+= -I/home/jschmieg/projects/git/memkind/jemalloc/include
-FINAL_CFLAGS+= -I/home/jschmieg/projects/git/memkind/jemalloc/obj/include
-FINAL_CFLAGS+= -DJE_PREFIX=jemk_
-FINAL_LIBS+= /usr/local/lib/libmemkind.so
 
 ifeq ($(MALLOC),tcmalloc)
 	FINAL_CFLAGS+= -DUSE_TCMALLOC
@@ -129,8 +125,6 @@ ifeq ($(MALLOC),jemalloc)
 	FINAL_CFLAGS+= -DUSE_JEMALLOC -I../deps/jemalloc/include
 	FINAL_LIBS+= ../deps/jemalloc/lib/libjemalloc.a
 endif
-
-FINAL_CFLAGS+= -I/home/jschmieg/projects/git/memkind/include
 
 REDIS_CC=$(QUIET_CC)$(CC) $(FINAL_CFLAGS)
 REDIS_LD=$(QUIET_LINK)$(CC) $(FINAL_LDFLAGS)
