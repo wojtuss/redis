@@ -9,6 +9,12 @@ void *memkind_alloc_wrapper(size_t size) {
 	return ptr;
 }
 
+void *memkind_calloc_wrapper(size_t size) {
+	void *ptr = memkind_calloc(server.pmem_kind1, 1, size);
+	printf("calloc size=%d, ptr=%p\n",size, ptr);
+	return ptr;
+}
+
 void *memkind_realloc_wrapper(void *ptr, size_t size) {
 	if (ptr == NULL) {
 		void *newptr = memkind_malloc(server.pmem_kind1, size);

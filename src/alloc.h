@@ -1,8 +1,5 @@
-/* SDSLib 2.0 -- A C dynamic strings library
- *
- * Copyright (c) 2006-2015, Salvatore Sanfilippo <antirez at gmail dot com>
- * Copyright (c) 2015, Redis Labs, Inc
- * All rights reserved.
+/*
+ * Copyright (c) 201l, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,14 +26,41 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* SDS allocator selection.
- *
- * This file is used in order to change the SDS allocator at compile time.
- * Just define the following defines to what you want to use. Also add
- * the include of your alternate allocator if needed (not needed in order
- * to use the default libc allocator). */
+#ifndef __ALLOC_H__
+#define __ALLOC_H__
 
+#include <stdint.h>
 #include "zmalloc.h"
-#define s_malloc zmalloc
-#define s_realloc zrealloc
-#define s_free zfree
+#include "memkind_malloc.h"
+
+/* Typedefs for user data allocator */
+typedef void *(*ualloc)(size_t size);
+typedef void *(*ucalloc)(size_t size);
+typedef void *(*ufree)(void *ptr);
+typedef void *(*urealloc)(void *ptr, size_t size);
+
+struct __alloc {
+	void *(*alloc)(size_t size);
+	void *(*calloc)(size_t size);
+	void *(*realloc)(void *ptr, size_t size);
+	void (*free)(void *ptr);
+};
+typedef const struct __alloc *alloc;
+
+static const struct __alloc __z_alloc = {
+		zmalloc,
+		zcalloc,
+		zrealloc,
+		zfree
+};
+static const struct __alloc *z_alloc = &__z_alloc;
+
+static const struct __alloc __m_alloc = {
+		mmalloc,
+		mcalloc,
+		mrealloc,
+		mfree
+};
+static const struct __alloc *m_alloc = &__m_alloc;
+
+#endif /* __ALLOC_H__ */

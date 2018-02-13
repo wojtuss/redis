@@ -70,6 +70,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #include "quicklist.h"  /* Lists are encoded as linked lists of
                            N-elements flat arrays */
 #include "rax.h"     /* Radix tree */
+#include "alloc.h"   /* Alternative allocators */
 
 /* Following includes allow test functions to be called from Redis main() */
 #include "zipmap.h"
@@ -599,6 +600,7 @@ typedef struct redisObject {
                             * LFU data (least significant 8 bits frequency
                             * and most significant 16 bits access time). */
     int refcount;
+    alloc a;               /* Allocator */
     void *ptr;
 } robj;
 
@@ -1424,15 +1426,41 @@ void addReplyStatusFormat(client *c, const char *fmt, ...);
 /* List data type */
 void listTypeTryConversion(robj *subject, robj *value);
 void listTypePush(robj *subject, robj *value, int where);
-robj *listTypePop(robj *subject, int where);
+robj *listTypePopA(robj *subject, int where, alloc a);
+static inline robj *listTypePop(robj *subject, int where) { return listTypePopA(subject, where, z_alloc); }
+static inline robj *listTypePopM(robj *subject, int where) { return listTypePopA(subject, where, m_alloc); }
 unsigned long listTypeLength(const robj *subject);
-listTypeIterator *listTypeInitIterator(robj *subject, long index, unsigned char direction);
+listTypeIterator *listTypeInitIteratorA(robj *subject, long index, unsigned char direction, alloc a);
+static inline listTypeIterator *listTypeInitIterator(robj *subject, long index, unsigned char direction) {
+	return listTypeInitIteratorA(subject, index, direction, z_alloc);
+}
+static inline listTypeIterator *listTypeInitIteratorM(robj *subject, long index, unsigned char direction) {
+	return listTypeInitIteratorA(subject, index, direction, m_alloc);
+}
 void listTypeReleaseIterator(listTypeIterator *li);
-int listTypeNext(listTypeIterator *li, listTypeEntry *entry);
+int listTypeNextA(listTypeIterator *li, listTypeEntry *entry, alloc a);
+static inline int listTypeNext(listTypeIterator *li, listTypeEntry *entry) {
+	return listTypeNextA(li, entry, z_alloc);
+}
+static inline int listTypeNextM(listTypeIterator *li, listTypeEntry *entry) {
+	return listTypeNextA(li, entry, m_alloc);
+}
 robj *listTypeGet(listTypeEntry *entry);
-void listTypeInsert(listTypeEntry *entry, robj *value, int where);
+void listTypeInsertA(listTypeEntry *entry, robj *value, int where, alloc a);
+//static inline void listTypeInsert(listTypeEntry *entry, robj *value, int where) {
+//	listTypeInsertA(entry, value, where, z_alloc);
+//}
+static inline void listTypeInsertM(listTypeEntry *entry, robj *value, int where) {
+	listTypeInsertA(entry, value, where, m_alloc);
+}
 int listTypeEqual(listTypeEntry *entry, robj *o);
-void listTypeDelete(listTypeIterator *iter, listTypeEntry *entry);
+void listTypeDeleteA(listTypeIterator *iter, listTypeEntry *entry, alloc a);
+//static inline void listTypeDelete(listTypeIterator *iter, listTypeEntry *entry) {
+//	listTypeDeleteA(iter, entry, z_alloc);
+//}
+static inline void listTypeDeleteM(listTypeIterator *iter, listTypeEntry *entry) {
+	listTypeDeleteA(iter, entry, m_alloc);
+}
 void listTypeConvert(robj *subject, int enc);
 void unblockClientWaitingData(client *c);
 void popGenericCommand(client *c, int where);
@@ -1460,9 +1488,14 @@ void freeSetObject(robj *o);
 void freeZsetObject(robj *o);
 void freeHashObject(robj *o);
 robj *createObject(int type, void *ptr);
+//robj *createObjectA(int type, void *ptr, alloc a);
+//static inline robj *createObject(int type, void *ptr) { return createObjectA(type, ptr, z_alloc); }
+//static inline robj *createObjectM(int type, void *ptr) { return createObjectA(type, ptr, m_alloc); }
 robj *createStringObject(const char *ptr, size_t len);
 robj *createRawStringObject(const char *ptr, size_t len);
-robj *createEmbeddedStringObject(const char *ptr, size_t len);
+robj *createEmbeddedStringObjectA(const char *ptr, size_t len, alloc a);
+static inline robj *createEmbeddedStringObject(const char *ptr, size_t len) { return createEmbeddedStringObjectA(ptr, len, z_alloc); }
+//static inline robj *createEmbeddedStringObjectM(const char *ptr, size_t len) { return createEmbeddedStringObjectA(ptr, len, m_alloc); }
 robj *dupStringObject(const robj *o);
 int isSdsRepresentableAsLongLong(sds s, long long *llval);
 int isObjectRepresentableAsLongLong(robj *o, long long *llongval);
@@ -1471,7 +1504,9 @@ robj *getDecodedObject(robj *o);
 size_t stringObjectLen(robj *o);
 robj *createStringObjectFromLongLong(long long value);
 robj *createStringObjectFromLongDouble(long double value, int humanfriendly);
-robj *createQuicklistObject(void);
+robj *createQuicklistObjectA(alloc a);
+static inline robj *createQuicklistObject(void) { return createQuicklistObjectA(z_alloc); }
+static inline robj *createQuicklistObjectM(void) { return createQuicklistObjectA(m_alloc); }
 robj *createZiplistObject(void);
 robj *createSetObject(void);
 robj *createIntsetObject(void);
